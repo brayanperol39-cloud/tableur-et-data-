@@ -6,15 +6,16 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
-MARQUE_CIBLE = "Dior (Simulé)"
+MARQUE_CIBLE = "Clarins (Simulé)"
 PLATEFORME = "E-commerce"
 SITE_SOURCE = "Books to Scrape"
-CATEGORIE = "Parfums & Cosmétiques"
+CATEGORIE = "Soin & Cosmétiques"
 BASE_URL = "https://books.toscrape.com/catalogue/page-{}.html"
 NB_PAGES = 3
 
 options = Options()
 options.add_argument("--start-maximized")
+options.add_experimental_option("excludeSwitches", ["enable-logging"])
 
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
@@ -23,7 +24,7 @@ colonnes = [
     "site_source", "url_produit", "note", "nombre_avis", "disponibilite", "page"
 ]
 
-with open("dior_books_complet.csv", "w", newline="", encoding="utf-8") as fichier:
+with open("clarins_books_complet.csv", "w", newline="", encoding="utf-8") as fichier:
     writer = csv.writer(fichier)
     writer.writerow(colonnes)
 
@@ -32,7 +33,7 @@ with open("dior_books_complet.csv", "w", newline="", encoding="utf-8") as fichie
         print(f"🐍 Scraping structuré {MARQUE_CIBLE} - Page {page}...")
 
         driver.get(url)
-        time.sleep(2) # Temps suffisant pour ce site statique
+        time.sleep(2) 
 
         produits = driver.find_elements(By.CSS_SELECTOR, "article.product_pod")
 
@@ -54,15 +55,17 @@ with open("dior_books_complet.csv", "w", newline="", encoding="utf-8") as fichie
                 except:
                     note = "N/A"
 
+                # 4. URL Produit
                 try:
                     url_prod = lien_element.get_attribute("href")
                 except:
                     url_prod = "N/A"
 
                 try:
-                    dispo = p.find_element(By.CSS_SELECTOR, ".instock.availability").text.strip()
+                    dispo_text = p.find_element(By.CSS_SELECTOR, ".instock.availability").text.strip()
+                    dispo = "En stock" if "In stock" in dispo_text else "Hors stock"
                 except:
-                    dispo = "Out of stock"
+                    dispo = "Hors stock"
 
                 avis = "0"
 
@@ -86,4 +89,4 @@ with open("dior_books_complet.csv", "w", newline="", encoding="utf-8") as fichie
         time.sleep(1)
 
 driver.quit()
-print(f"✅ Terminé ! Le fichier 'dior_books_complet.csv' contient les données structurées.")
+print(f"✅ Terminé ! Le fichier 'clarins_books_complet.csv' est prêt pour ton analyse.")
