@@ -1,54 +1,85 @@
-import requests
-from bs4 import BeautifulSoup
 import csv
 import time
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 
-URL_CIBLE = "https://books.toscrape.com/catalogue/page-1.html"
-HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-FICHIER_CSV = "resultats_scraping.csv"
+MARQUE_CIBLE = "Dior (Simulé)"
+PLATEFORME = "Bac à sable"
+SITE_SOURCE = "Books to Scrape"
+CATEGORIE = "Livres & Culture"
+BASE_URL = "https://books.toscrape.com/catalogue/page-{}.html"
+NB_PAGES = 3
 
-def lancer_scraping():
-    print(f"Début de l'extraction sur : {URL_CIBLE}...")
-    
-    try:
-        response = requests.get(URL_CIBLE, headers=HEADERS, timeout=10)
-        
-        if response.status_code == 200:
-            print("Connexion réussie (Statut 200).")
-            soup = BeautifulSoup(response.text, "html.parser")
+options = Options()
+options.add_argument("--start-maximized")
 
-            articles = soup.find_all("article", class_="product_pod")
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
-            with open(FICHIER_CSV, "w", newline="", encoding="utf-8") as fichier:
-                writer = csv.writer(fichier)
-                # En-tête avec les 4 champs requis par le TP
-                writer.writerow(["titre", "prix", "note", "disponibilite"])
-                
-                for art in articles:
-                    try:
+colonnes = [
+    "nom_produit", "marque", "prix", "categorie", "plateforme", 
+    "site_source", "url_produit", "note", "disponibilite", "page"
+]
 
-                        titre = art.find("h3").find("a")["title"]
+with open("dior_books_complet.csv", "w", newline="", encoding="utf-8") as fichier:
+    writer = csv.writer(fichier)
+    writer.writerow(colonnes)
 
-                        prix = art.find("p", class_="price_color").text.strip()
+    for page in range(1, NB_PAGES + 1):
+        url = BASE_URL.format(page)
+        print(f"🐍 Scraping structuré {MARQUE_CIBLE} - Page {page}...")
 
-                        note_classe = art.find("p", class_="star-rating")["class"]
-                        note = note_classe[1] 
+        driver.get(url)
+        time.sleep(2) 
 
-                        dispo = art.find("p", class_="availability").text.strip()
+        produits = driver.find_elements(By.CSS_SELECTOR, "article.product_pod")
 
-                        writer.writerow([titre, prix, note, dispo])
-                        
-                    except Exception:
-                        continue
-            
-            print(f"Succès ! Le fichier '{FICHIER_CSV}' a été créé.")
-            time.sleep(1) 
-            
-        else:
-            print(f"Échec de connexion. Code HTTP : {response.status_code}")
+        for p in produits:
+            try:
 
-    except Exception as e:
-        print(f"Une erreur est survenue : {e}")
+                lien_element = p.find_element(By.CSS_SELECTOR, "h3 a")
+                nom = lien_element.get_attribute("title")
 
-if __name__ == "__main__":
-    lancer_scraping()
+                try:
+                    prix = p.find_element(By.CSS_SELECTOR, ".price_color").text.strip()
+                except:
+                    prix = "N/A"
+
+                try:
+                    note_classe = p.find_element(By.CSS_SELECTOR, ".star-rating").get_attribute("class")
+                    note = note_classe.replace("star-rating ", "") 
+                except:
+                    note = "N/A"
+
+                try:
+                    url_prod = lien_element.get_attribute("href")
+                except:
+                    url_prod = "N/A"
+
+                try:
+                    dispo = p.find_element(By.CSS_SELECTOR, ".instock.availability").text.strip()
+                except:
+                    dispo = "Out of stock"
+
+                writer.writerow([
+                    nom, 
+                    MARQUE_CIBLE, 
+                    prix, 
+                    CATEGORIE, 
+                    PLATEFORME, 
+                    SITE_SOURCE, 
+                    url_prod, 
+                    note, 
+                    dispo, 
+                    page
+                ])
+
+            except Exception:
+                continue
+
+        time.sleep(1)
+
+driver.quit()
+print(f"✅ Terminé ! Le fichier 'dior_books_complet.csv' est prêt.")
